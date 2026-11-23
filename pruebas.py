@@ -1,4 +1,6 @@
 from modelo.productos import Producto, Plato, Bebida, Combo
+from modelo.clientes import Cliente
+from modelo.pedidos import ItemPedido
 
 
 def crear_combo_referencia():
@@ -109,6 +111,51 @@ def prueba_combo_disponibilidad():
     assert not combo.esta_disponible("lunes")
 
 
+def prueba_cliente_telefono_valido():
+    assert Cliente("Ana", "71234567").telefono == "71234567"
+    assert Cliente("Luis", "61234567").telefono == "61234567"
+
+
+def prueba_cliente_telefono_invalido():
+    telefonos_malos = ["51234567", "7123456", "7123456a", "712345678"]
+    for telefono in telefonos_malos:
+        lanzo_error = False
+        try:
+            Cliente("Ana", telefono)
+        except ValueError:
+            lanzo_error = True
+        assert lanzo_error
+
+
+def prueba_cliente_nombre_vacio():
+    lanzo_error = False
+    try:
+        Cliente("   ", "71234567")
+    except ValueError:
+        lanzo_error = True
+    assert lanzo_error
+
+
+def prueba_item_cantidad_limites():
+    plato = Plato("Silpancho", 35)
+    assert ItemPedido(plato, 1).cantidad == 1
+    assert ItemPedido(plato, 20).cantidad == 20
+    for cantidad in [0, 21]:
+        lanzo_error = False
+        try:
+            ItemPedido(plato, cantidad)
+        except ValueError:
+            lanzo_error = True
+        assert lanzo_error
+
+
+def prueba_item_subtotal_y_conteos():
+    item = ItemPedido(crear_combo_referencia(), 3)
+    assert item.calcular_subtotal() == 110.7
+    assert item.contar_platos() == 3
+    assert item.contar_productos() == 6
+
+
 if __name__ == "__main__":
     prueba_producto_es_abstracto()
     prueba_chicharron_solo_domingos()
@@ -122,4 +169,9 @@ if __name__ == "__main__":
     prueba_combo_no_se_contiene_a_si_mismo()
     prueba_combo_minimo_dos_productos()
     prueba_combo_disponibilidad()
+    prueba_cliente_telefono_valido()
+    prueba_cliente_telefono_invalido()
+    prueba_cliente_nombre_vacio()
+    prueba_item_cantidad_limites()
+    prueba_item_subtotal_y_conteos()
     print("Todas las pruebas pasaron")
