@@ -1,201 +1,124 @@
 from abc import ABC, abstractmethod
 
-DESCUENTO_COMBO = 0.10
-FACTOR_JARRA = 3
-
-DIAS_SEMANA = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
 
 class Producto(ABC):
-    def __init__(self, nombre):
-        self.nombre = nombre 
+    def __init__(self, nombre: str, precio: float):
+        self.nombre = nombre
+        self.precio = precio
 
     @property
     def nombre(self):
         return self._nombre
 
     @nombre.setter
-    def nombre(self, valor):
-        if not isinstance(valor, str):
-            raise ValueError("El nombre debe ser texto")
-        valor = valor.strip()
-        if valor == "":
-            raise ValueError("El nombre no puede estar vacío")
-        self._nombre = valor
-
-    # Métodos abstractos: cada subclase está obligada a escribirlos
-    @abstractmethod
-    def calcular_precio(self):
-        pass
-
-    @abstractmethod
-    def esta_disponible(self, dia):
-        pass
-
-    @abstractmethod
-    def contar_platos(self):
-        pass
-
-    @abstractmethod
-    def contar_productos(self):
-        pass
-
-    # Método normal: sirve para que un combo no se contenga a sí mismo
-    def contiene(self, otro):
-        return self is otro
-
-
-class ProductoSimple(Producto):
-    def __init__(self, nombre, precio):
-        super().__init__(nombre)
-        self.precio = precio
+    def nombre(self, valor: str):
+        if not valor or not valor.strip():
+            raise ValueError("El nombre del producto no puede estar vacío.")
+        self._nombre = valor.strip()
 
     @property
     def precio(self):
         return self._precio
 
     @precio.setter
-    def precio(self, valor):
-        if not isinstance(valor, (int, float)):
-            raise ValueError("El precio debe ser un número")
+    def precio(self, valor: float):
         if valor <= 0:
-            raise ValueError("El precio debe ser mayor que cero")
-        self._precio = valor
+            raise ValueError("El precio debe ser mayor que cero.")
+        self._precio = round(float(valor), 2)
+
+    @abstractmethod
+    def calcular_precio(self, dia: str):
+        pass
+
+    @abstractmethod
+    def esta_disponible(self, dia: str):
+        pass
+
+    @abstractmethod
+    def contar_platos(self):
+        pass
+
+    def __str__(self):
+        return f"{self._nombre} - Bs {self._precio:.2f}"
 
 
-class Plato(ProductoSimple):
-    def __init__(self, nombre, precio, dias_venta=None):
+class Plato(Producto):
+    def __init__(self, nombre: str, precio: float, dias_disponibles: list[str] = None):
         super().__init__(nombre, precio)
-        if dias_venta is None:
-            dias_venta = []
-        self.dias_venta = dias_venta
+        if dias_disponibles:
+            self._dias_disponibles = [d.strip().lower() for d in dias_disponibles]
+        else:
+            self._dias_disponibles = []  # Lista vacía = disponible todos los días
 
     @property
-    def dias_venta(self):
-        return list(self._dias_venta)  
+    def dias_disponibles(self) -> list[str]:
+        return list(self._dias_disponibles)
 
-    @dias_venta.setter
-    def dias_venta(self, valor):
-        if isinstance(valor, str):
-            valor = [valor]
-        dias_validos = []
-        for dia in valor:
-            dia = dia.strip().lower()
-            if dia not in DIAS_SEMANA:
-                raise ValueError("Día inválido: " + dia)
-            dias_validos.append(dia)
-        self._dias_venta = dias_validos
+    def calcular_precio(self, dia: str):
+        return self._precio
 
-    def calcular_precio(self):
-        return round(self._precio, 2)
-
-    def esta_disponible(self, dia):
-        if len(self._dias_venta) == 0:
-            return True  
-        dia = dia.strip().lower()
-        return dia in self._dias_venta
+    def esta_disponible(self, dia: str):
+        if not self._dias_disponibles:
+            return True
+        return dia.strip().lower() in self._dias_disponibles
 
     def contar_platos(self):
         return 1
 
-    def contar_productos(self):
-        return 1
 
+class Bebida(Producto):
+    FACTOR_JARRA = 3  
 
-class Bebida(ProductoSimple):
-    def __init__(self, nombre, precio_vaso, es_jarra=False):
-        super().__init__(nombre, precio_vaso) 
-        self.es_jarra = es_jarra
+    def __init__(self, nombre: str, precio: float, es_jarra: bool = False):
+        super().__init__(nombre, precio)
+        self._es_jarra = bool(es_jarra)
 
     @property
     def es_jarra(self):
         return self._es_jarra
 
-    @es_jarra.setter
-    def es_jarra(self, valor):
-        if not isinstance(valor, bool):
-            raise ValueError("es_jarra debe ser True o False")
-        self._es_jarra = valor
-
-    def calcular_precio(self):
+    def calcular_precio(self, dia: str):
         if self._es_jarra:
-            return round(self._precio * FACTOR_JARRA, 2)
-        return round(self._precio, 2)
+            return round(self._precio * self.FACTOR_JARRA, 2)
+        return self._precio
 
-    def esta_disponible(self, dia):
+    def esta_disponible(self, dia: str):
         return True
 
     def contar_platos(self):
         return 0
 
-    def contar_productos(self):
-        return 1
+    def __str__(self):
+        presentacion = "Jarra" if self._es_jarra else "Vaso"
+        return f"{self._nombre} ({presentacion}) - Bs {self.calcular_precio(''):.2f}"
 
 
 class Combo(Producto):
-    def __init__(self, nombre, productos, descuento=DESCUENTO_COMBO):
-        super().__init__(nombre)
-        self.descuento = descuento
-        self._productos = []
-        for producto in productos:
-            self.agregar_producto(producto)
-        if len(self._productos) < 2:
-            raise ValueError("Un combo necesita al menos 2 productos")
+    DESCUENTO = 0.10 
+
+    def __init__(self, nombre: str, productos: list[Producto]):
+        if self in productos:
+            raise ValueError("Un combo no puede contenerse a sí mismo.")
+        if len(productos) < 2:
+            raise ValueError("Un combo debe tener al menos 2 productos.")
+
+        self.nombre = nombre
+        self._precio = 0.0  
+        self._productos = list(productos)
 
     @property
-    def descuento(self):
-        return self._descuento
+    def productos(self) -> list[Producto]:
+        return list(self._productos)
 
-    @descuento.setter
-    def descuento(self, valor):
-        if not isinstance(valor, (int, float)):
-            raise ValueError("El descuento debe ser un número")
-        if valor < 0 or valor >= 1:
-            raise ValueError("El descuento debe estar entre 0 y 1 (por ejemplo 0.10)")
-        self._descuento = valor
+    def calcular_precio(self, dia: str):
+        suma = sum(p.calcular_precio(dia) for p in self._productos)
+        return round(suma * (1 - self.DESCUENTO), 2)
 
-    @property
-    def productos(self):
-        return list(self._productos)  # devuelve una copia
-
-    def agregar_producto(self, producto):
-        if producto.contiene(self):
-            raise ValueError("Un combo no puede contenerse a sí mismo")
-        self._productos.append(producto)
-
-    def contiene(self, otro):
-        if self is otro:
-            return True
-        for producto in self._productos:
-            if producto.contiene(otro):
-                return True
-        return False
-
-    def calcular_subtotal(self):
-        total = 0
-        for producto in self._productos:
-            total = total + producto.calcular_precio()
-        return round(total, 2)
-
-    def calcular_descuento(self):
-        return round(self.calcular_subtotal() * self._descuento, 2)
-
-    def calcular_precio(self):
-        return round(self.calcular_subtotal() - self.calcular_descuento(), 2)
-
-    def esta_disponible(self, dia):
-        for producto in self._productos:
-            if not producto.esta_disponible(dia):
-                return False
-        return True
+    def esta_disponible(self, dia: str):
+        return all(p.esta_disponible(dia) for p in self._productos)
 
     def contar_platos(self):
-        total = 0
-        for producto in self._productos:
-            total = total + producto.contar_platos()
-        return total
+        return sum(p.contar_platos() for p in self._productos)
 
-    def contar_productos(self):
-        total = 0
-        for producto in self._productos:
-            total = total + producto.contar_productos()
-        return total
+    def __str__(self):
+        return f"{self._nombre} (Combo) - Bs {self.calcular_precio(''):.2f}"
