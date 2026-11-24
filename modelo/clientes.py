@@ -30,3 +30,6 @@ class Cliente:
         if tel[0] != "6" and tel[0] != "7":
             raise ValueError("El teléfono debe empezar con 6 o 7")
         self._telefono = tel
+
+    def __str__(self):
+        return f"{self._nombre} (Tel: {self._telefono})"
